@@ -1,4 +1,4 @@
-use super::dedup::*;
+﻿use super::dedup::*;
 use super::math::*;
 use soroban_sdk::{testutils::BytesN as _, BytesN, Env};
 
@@ -20,10 +20,19 @@ fn test_nonce_verification() {
     let env = Env::default();
     let user_id = 42;
 
-    assert_eq!(DedupGuard::verify_and_increment_nonce(&env, user_id, 1), true);
-    assert_eq!(DedupGuard::verify_and_increment_nonce(&env, user_id, 2), true);
+    assert_eq!(
+        DedupGuard::verify_and_increment_nonce(&env, user_id, 1),
+        true
+    );
+    assert_eq!(
+        DedupGuard::verify_and_increment_nonce(&env, user_id, 2),
+        true
+    );
     // Out of order nonce should fail
-    assert_eq!(DedupGuard::verify_and_increment_nonce(&env, user_id, 4), false);
+    assert_eq!(
+        DedupGuard::verify_and_increment_nonce(&env, user_id, 4),
+        false
+    );
 }
 
 #[test]
@@ -41,7 +50,10 @@ fn test_basis_points_calculation() {
     // 250 bps = 2.50% of 10,000 = 250
     assert_eq!(SafeMath::compute_basis_points(10_000, 250).unwrap(), 250);
     // 100% = 10,000 bps
-    assert_eq!(SafeMath::compute_basis_points(5_000, 10_000).unwrap(), 5_000);
+    assert_eq!(
+        SafeMath::compute_basis_points(5_000, 10_000).unwrap(),
+        5_000
+    );
 }
 
 #[test]
