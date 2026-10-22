@@ -1,4 +1,4 @@
-name: Soroban Kit CI
+﻿name: Soroban Kit CI
 
 on:
   push:
@@ -22,6 +22,11 @@ jobs:
 
       - name: Rustfmt Check
         run: cargo fmt --all -- --check
+
+      - name: Generate Lockfile and Pin Breaking Upstream Transitives
+        run: |
+          cargo generate-lockfile || true
+          cargo update -p ed25519-dalek --precise 2.1.1 || true
 
       - name: Clippy Linter
         run: cargo clippy --all-targets -- -D warnings
