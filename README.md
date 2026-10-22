@@ -3,31 +3,31 @@
 [![CI](https://github.com/OrderStream/soroban-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/OrderStream/soroban-kit/actions/workflows/ci.yml)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
 [![Soroban SDK](https://img.shields.io/badge/Soroban%20SDK-v22.0.0-purple.svg)](https://stellar.org/soroban)
+[![WASM Ready](https://img.shields.io/badge/WASM-wasm32v1--none-brightgreen.svg)](https://github.com/OrderStream/soroban-kit)
 
-Production-ready security utilities, sliding-window event deduplication, and fixed-point math safeguards for Stellar Soroban smart contracts.
+Production-grade security utilities, sliding-window event deduplication, multi-tier circuit breakers, bitflag RBAC timelocks, and high-precision financial math safeguards for Stellar Soroban smart contracts.
 
 ---
 
-## 🚀 Features
+## 🌟 Modules & Capabilities
 
-- **Sliding-Window Deduplication (`DedupGuard`)**:
-  - Replay and duplicate action suppression using Soroban temporary storage.
-  - Zero permanent storage footprint with automatic ledger TTL renewal.
-  - Monotonically increasing sequential nonce verification for off-chain signed permits.
-
-- **Defensive Fixed-Point Math (`SafeMath`)**:
-  - Overflow-checked `mul_div` intermediate precision scaling.
-  - Basis point calculations (`compute_basis_points`) with strict upper bound validation.
-  - **Banker's Rounding (Round Half to Even)**: Eliminates statistical upward balance drift across high-frequency payment channels.
-
-- **Storage Lifecycle Helper (`StorageManager`)**:
-  - Safe TTL renewal thresholds for instance and temporary contract data.
+| Module | Core Primitive | Security Problem Solved |
+| :--- | :--- | :--- |
+| **`dedup`** | `DedupGuard` | Replay & duplicate execution suppression using temporary storage with zero permanent state pollution. |
+| **`reentrancy`** | `ReentrancyGuard` | Zero-cost transient mutex protecting cross-contract calls and external token payouts. |
+| **`pause`** | `CircuitBreaker` | 3-tier emergency states (`Operational`, `Degraded`, `Halted`) with auto-trip threshold monitoring. |
+| **`access`** | `AccessControl` | Bitflag-packed multi-role access control (`Role::ADMIN`, `Role::MINTER`, etc.) and delayed timelock queues. |
+| **`math`** | `SafeMath` | Checked 128-bit arithmetic and **Banker's Rounding (Round Half to Even)** to prevent liquidity drift. |
+| **`curve`** | `CurveMath` | Piecewise kinked interest rate models for lending pools and linear decay curves for Dutch auctions. |
+| **`twap`** | `TwapOracle` | Flash-loan resistant Time-Weighted Average Price accumulator and observation calculations. |
+| **`storage`** | `StorageManager` | Automated instance and temporary storage TTL extension routines preventing archival lockouts. |
+| **`events`** | `EventEmitter` | Monotonically sequenced event topics ensuring zero out-of-order records in indexers. |
 
 ---
 
 ## 📦 Installation
 
-Add `soroban-kit` to your `Cargo.toml`:
+Add `soroban-kit` to your contract's `Cargo.toml`:
 
 ```toml
 [dependencies]
@@ -36,50 +36,82 @@ soroban-kit = { git = "https://github.com/OrderStream/soroban-kit.git" }
 
 ---
 
-## 💡 Code Examples
+## 💡 Code Walkthroughs
 
-### 1. Sliding-Window Deduplication & Replay Guard
+### 1. Re-entrancy Protection for Cross-Contract Payouts
 
 ```rust
-use soroban_kit::dedup::DedupGuard;
-use soroban_sdk::{BytesN, Env};
+use soroban_kit::reentrancy::ReentrancyGuard;
+use soroban_sdk::{Address, Env};
 
-pub fn execute_payout(env: Env, tx_hash: BytesN<32>, recipient: Address, amount: i128) {
-    // Window of 17,280 ledgers (~24 hours on Stellar)
-    let is_new = DedupGuard::record_action(&env, &tx_hash, 17_280);
-    if !is_new {
-        panic!("Duplicate transaction hash rejected");
-    }
+pub fn withdraw_collateral(env: Env, user: Address, amount: i128) {
+    user.require_auth();
 
-    // Proceed with payout...
+    // Guard against malicious cross-contract re-entrancy
+    ReentrancyGuard::with_guard(&env, || {
+        // Safe token transfer logic...
+    }).unwrap();
 }
 ```
 
-### 2. High-Precision Fee Calculation & Banker's Rounding
+### 2. Multi-Tier Circuit Breaker (Never Trap User Withdrawals)
 
 ```rust
-use soroban_kit::math::SafeMath;
+use soroban_kit::pause::{CircuitBreaker, ProtocolState};
+use soroban_sdk::Env;
 
-// Calculate 1.5% protocol fee (150 basis points)
-let fee = SafeMath::compute_basis_points(10_000, 150).unwrap();
-assert_eq!(fee, 150);
+pub fn deposit(env: Env, amount: i128) {
+    // Deposits are strictly blocked if protocol is Degraded or Halted
+    CircuitBreaker::require_operational(&env).unwrap();
+    // Execute deposit...
+}
 
-// Round half to even (banker's rounding)
-let rounded = SafeMath::round_half_even(7, 2).unwrap();
-assert_eq!(rounded, 4); // 3.5 rounds to even 4
+pub fn emergency_withdraw(env: Env, user: Address) {
+    // Withdrawals remain PERMITTED in Degraded mode so user funds are never trapped
+    CircuitBreaker::require_not_halted(&env).unwrap();
+    // Execute withdrawal...
+}
+```
+
+### 3. Bitflag Role-Based Access Control & Timelock
+
+```rust
+use soroban_kit::access::{AccessControl, Role};
+use soroban_sdk::{Address, Env};
+
+pub fn mint_reward(env: Env, caller: Address, recipient: Address, amount: i128) {
+    // Requires MINTER role in a single bitwise comparison
+    AccessControl::require_role(&env, &caller, Role::MINTER).unwrap();
+    // Mint token...
+}
+```
+
+### 4. Kinked Interest Rate Model for Lending Protocols
+
+```rust
+use soroban_kit::curve::CurveMath;
+
+// 80% Kink (8,000 bps), 2% Base (200 bps), 10% Slope1 (1,000 bps), 50% Slope2 (5,000 bps)
+let rate = CurveMath::calculate_kinked_rate(
+    utilization_bps, // e.g. 8,500 bps (85%)
+    8_000,
+    200,
+    1_000,
+    5_000,
+).unwrap();
 ```
 
 ---
 
 ## 🧪 Verification & Testing
 
-Run unit tests via Cargo:
+All modules are verified with automated unit tests:
 
 ```bash
 cargo test
 ```
 
-Build WebAssembly release binary:
+Compiled for WebAssembly release target:
 
 ```bash
 cargo build --target wasm32v1-none --release
@@ -89,8 +121,4 @@ cargo build --target wasm32v1-none --release
 
 ## 📜 License
 
-Licensed under either of:
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
-- MIT License ([LICENSE-MIT](LICENSE-MIT))
-
-at your option.
+Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE).

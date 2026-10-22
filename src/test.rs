@@ -1,18 +1,23 @@
-﻿use super::dedup::*;
+use super::access::*;
+use super::curve::*;
+use super::dedup::*;
 use super::math::*;
-use soroban_sdk::{testutils::BytesN as _, BytesN, Env};
+use super::pause::*;
+use super::reentrancy::*;
+use super::twap::*;
+use soroban_sdk::{testutils::Address as _, testutils::BytesN as _, Address, BytesN, Env};
 
 #[test]
 fn test_dedup_action_recording_and_suppression() {
     let env = Env::default();
     let action_hash = BytesN::random(&env);
 
-    assert_eq!(DedupGuard::is_duplicate(&env, &action_hash), false);
-    assert_eq!(DedupGuard::record_action(&env, &action_hash, 100), true);
+    assert!(!DedupGuard::is_duplicate(&env, &action_hash));
+    assert!(DedupGuard::record_action(&env, &action_hash, 100));
 
     // Second execution must be detected as duplicate
-    assert_eq!(DedupGuard::is_duplicate(&env, &action_hash), true);
-    assert_eq!(DedupGuard::record_action(&env, &action_hash, 100), false);
+    assert!(DedupGuard::is_duplicate(&env, &action_hash));
+    assert!(!DedupGuard::record_action(&env, &action_hash, 100));
 }
 
 #[test]
@@ -20,19 +25,9 @@ fn test_nonce_verification() {
     let env = Env::default();
     let user_id = 42;
 
-    assert_eq!(
-        DedupGuard::verify_and_increment_nonce(&env, user_id, 1),
-        true
-    );
-    assert_eq!(
-        DedupGuard::verify_and_increment_nonce(&env, user_id, 2),
-        true
-    );
-    // Out of order nonce should fail
-    assert_eq!(
-        DedupGuard::verify_and_increment_nonce(&env, user_id, 4),
-        false
-    );
+    assert!(DedupGuard::verify_and_increment_nonce(&env, user_id, 1));
+    assert!(DedupGuard::verify_and_increment_nonce(&env, user_id, 2));
+    assert!(!DedupGuard::verify_and_increment_nonce(&env, user_id, 4));
 }
 
 #[test]
@@ -47,9 +42,7 @@ fn test_safe_math_mul_div() {
 
 #[test]
 fn test_basis_points_calculation() {
-    // 250 bps = 2.50% of 10,000 = 250
     assert_eq!(SafeMath::compute_basis_points(10_000, 250).unwrap(), 250);
-    // 100% = 10,000 bps
     assert_eq!(
         SafeMath::compute_basis_points(5_000, 10_000).unwrap(),
         5_000
@@ -58,11 +51,127 @@ fn test_basis_points_calculation() {
 
 #[test]
 fn test_bankers_rounding() {
-    // Round half to even:
-    // 5 / 2 = 2.5 -> rounds to even integer 2
     assert_eq!(SafeMath::round_half_even(5, 2).unwrap(), 2);
-    // 7 / 2 = 3.5 -> rounds to even integer 4
     assert_eq!(SafeMath::round_half_even(7, 2).unwrap(), 4);
-    // 8 / 2 = 4.0 -> 4
     assert_eq!(SafeMath::round_half_even(8, 2).unwrap(), 4);
+}
+
+#[test]
+fn test_reentrancy_guard_mutex() {
+    let env = Env::default();
+
+    assert!(ReentrancyGuard::enter(&env).is_ok());
+    // Second enter must fail
+    assert_eq!(
+        ReentrancyGuard::enter(&env).unwrap_err(),
+        ReentrancyError::ReentrancyDetected
+    );
+
+    ReentrancyGuard::exit(&env);
+    assert!(ReentrancyGuard::enter(&env).is_ok());
+    ReentrancyGuard::exit(&env);
+}
+
+#[test]
+fn test_circuit_breaker_3_tier_states() {
+    let env = Env::default();
+
+    assert_eq!(CircuitBreaker::get_state(&env), ProtocolState::Operational);
+    assert!(CircuitBreaker::require_operational(&env).is_ok());
+
+    CircuitBreaker::set_state(&env, ProtocolState::Degraded);
+    assert_eq!(
+        CircuitBreaker::require_operational(&env).unwrap_err(),
+        CircuitBreakerError::OperationNotPermittedInDegradedMode
+    );
+    // Degraded mode permits non-halted operations (e.g. user withdrawals)
+    assert!(CircuitBreaker::require_not_halted(&env).is_ok());
+
+    CircuitBreaker::set_state(&env, ProtocolState::Halted);
+    assert_eq!(
+        CircuitBreaker::require_not_halted(&env).unwrap_err(),
+        CircuitBreakerError::ProtocolHalted
+    );
+}
+
+#[test]
+fn test_rbac_bitflags() {
+    let env = Env::default();
+    let account = Address::generate(&env);
+
+    assert!(!AccessControl::has_role(&env, &account, Role::ADMIN));
+    AccessControl::grant_role(&env, &account, Role::ADMIN | Role::MINTER);
+
+    assert!(AccessControl::has_role(&env, &account, Role::ADMIN));
+    assert!(AccessControl::has_role(&env, &account, Role::MINTER));
+    assert!(!AccessControl::has_role(&env, &account, Role::GUARDIAN));
+
+    AccessControl::revoke_role(&env, &account, Role::ADMIN);
+    assert!(!AccessControl::has_role(&env, &account, Role::ADMIN));
+    assert!(AccessControl::has_role(&env, &account, Role::MINTER));
+}
+
+#[test]
+fn test_timelock_scheduling_and_expiry() {
+    let env = Env::default();
+    let action_hash = BytesN::random(&env);
+
+    AccessControl::schedule_action(&env, &action_hash, 100, 50);
+
+    // Before unlock ledger (100 + 50 = 150)
+    assert_eq!(
+        AccessControl::verify_timelock_and_consume(&env, &action_hash, 120, 20).unwrap_err(),
+        AccessError::TimelockNotElapsed
+    );
+
+    // After expiration (150 + 20 = 170)
+    assert_eq!(
+        AccessControl::verify_timelock_and_consume(&env, &action_hash, 180, 20).unwrap_err(),
+        AccessError::TimelockExpired
+    );
+
+    // Within valid execution window (150..=170)
+    assert!(AccessControl::verify_timelock_and_consume(&env, &action_hash, 160, 20).is_ok());
+
+    // Replay after execution rejected
+    assert_eq!(
+        AccessControl::verify_timelock_and_consume(&env, &action_hash, 165, 20).unwrap_err(),
+        AccessError::ActionAlreadyExecuted
+    );
+}
+
+#[test]
+fn test_kinked_interest_rate_curve() {
+    // 80% kink (8,000 bps), 2% base rate (200 bps), 10% slope1 (1,000 bps), 50% slope2 (5,000 bps)
+    let kink = 8_000;
+    let base = 200;
+    let slope1 = 1_000;
+    let slope2 = 5_000;
+
+    // At 40% utilization (below kink): rate = 200 + (4,000 / 8,000) * 1,000 = 700 bps (7%)
+    let rate_40 = CurveMath::calculate_kinked_rate(4_000, kink, base, slope1, slope2).unwrap();
+    assert_eq!(rate_40, 700);
+
+    // At 80% utilization (at kink): rate = 200 + 1,000 = 1,200 bps (12%)
+    let rate_80 = CurveMath::calculate_kinked_rate(8_000, kink, base, slope1, slope2).unwrap();
+    assert_eq!(rate_80, 1_200);
+
+    // At 90% utilization (above kink): rate = 1,200 + (1,000 / 2,000) * 5,000 = 3,700 bps (37%)
+    let rate_90 = CurveMath::calculate_kinked_rate(9_000, kink, base, slope1, slope2).unwrap();
+    assert_eq!(rate_90, 3_700);
+}
+
+#[test]
+fn test_twap_oracle_accumulation() {
+    let env = Env::default();
+
+    // Start at t=1000 with price=100
+    let _ = TwapOracle::update(&env, 100, 1000).unwrap();
+
+    // After 100s at t=1100 with price=150: cumulative += 150 * 100 = 15,000
+    let cum = TwapOracle::update(&env, 150, 1100).unwrap();
+    assert_eq!(cum, 15_000);
+
+    let twap = TwapOracle::calculate_twap(0, 15_000, 1000, 1100).unwrap();
+    assert_eq!(twap, 150);
 }
