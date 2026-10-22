@@ -35,7 +35,7 @@ impl SafeMath {
     /// Computes percentage fee in basis points (1 bps = 0.01%).
     /// `amount * bps / 10,000`
     pub fn compute_basis_points(amount: i128, bps: i128) -> Result<i128, MathError> {
-        if bps < 0 || bps > BPS_SCALING {
+        if !(0..=BPS_SCALING).contains(&bps) {
             return Err(MathError::Overflow);
         }
         Self::mul_div(amount, bps, BPS_SCALING)
