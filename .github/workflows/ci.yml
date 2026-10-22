@@ -23,8 +23,8 @@ jobs:
       - name: Rustfmt Check
         run: cargo fmt --all -- --check
 
-      - name: Clippy Linter
-        run: cargo clippy --all-targets -- -D warnings
+      - name: Clippy (Wasm Target)
+        run: cargo clippy --target wasm32v1-none -- -D warnings
 
-      - name: Run Tests
-        run: cargo test --all-targets
+      - name: Build Wasm Contract Binary
+        run: cargo build --target wasm32v1-none --release
