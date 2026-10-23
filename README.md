@@ -1,5 +1,6 @@
 # soroban-kit 🛡️
 
+[![Crates.io](https://img.shields.io/crates/v/soroban-security-kit.svg)](https://crates.io/crates/soroban-security-kit)
 [![CI](https://github.com/OrderStream/soroban-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/OrderStream/soroban-kit/actions/workflows/ci.yml)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
 [![Soroban SDK](https://img.shields.io/badge/Soroban%20SDK-v22.0.0-purple.svg)](https://stellar.org/soroban)
@@ -26,12 +27,18 @@ Production-grade security utilities, sliding-window event deduplication, multi-t
 ---
 
 ## 📦 Installation
+ 
+Add `soroban-security-kit` directly via `cargo`:
 
-Add `soroban-kit` to your contract's `Cargo.toml`:
+```bash
+cargo add soroban-security-kit
+```
+
+Or add it to your contract's `Cargo.toml`:
 
 ```toml
 [dependencies]
-soroban-kit = { git = "https://github.com/OrderStream/soroban-kit.git" }
+soroban-security-kit = "0.1.0"
 ```
 
 ---
