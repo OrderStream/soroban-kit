@@ -11,13 +11,13 @@ keywords = ["stellar", "soroban", "smart-contracts", "defi", "security"]
 categories = ["cryptography::cryptocurrencies", "no-std", "wasm"]
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["rlib"]
 
 [dependencies]
 soroban-sdk = { version = "22.0.0", default-features = false }
 
 [dev-dependencies]
-soroban-sdk = { version = "22.0.0" }
+soroban-sdk = { version = "22.0.0", features = ["testutils"] }
 
 [profile.release]
 opt-level = "z"

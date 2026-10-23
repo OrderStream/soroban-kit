@@ -19,32 +19,36 @@ pub struct TwapOracle;
 impl TwapOracle {
     /// Updates the cumulative price accumulator given the current spot price.
     pub fn update(env: &Env, spot_price: i128, current_timestamp: u64) -> Result<i128, MathError> {
-        let last_timestamp: u64 = env
-            .storage()
-            .instance()
-            .get(&TwapKey::LastTimestamp)
-            .unwrap_or(current_timestamp);
         let mut cumulative_price: i128 = env
             .storage()
             .instance()
             .get(&TwapKey::CumulativePrice)
             .unwrap_or(0);
 
-        let delta_time = current_timestamp.saturating_sub(last_timestamp);
-        if delta_time > 0 {
-            let weighted_addition = spot_price
-                .checked_mul(delta_time as i128)
-                .ok_or(MathError::Overflow)?;
-            cumulative_price = cumulative_price
-                .checked_add(weighted_addition)
-                .ok_or(MathError::Overflow)?;
+        if let Some(last_timestamp) = env.storage().instance().get::<_, u64>(&TwapKey::LastTimestamp) {
+            let delta_time = current_timestamp.saturating_sub(last_timestamp);
+            if delta_time > 0 {
+                let weighted_addition = spot_price
+                    .checked_mul(delta_time as i128)
+                    .ok_or(MathError::Overflow)?;
+                cumulative_price = cumulative_price
+                    .checked_add(weighted_addition)
+                    .ok_or(MathError::Overflow)?;
 
-            env.storage()
-                .instance()
-                .set(&TwapKey::CumulativePrice, &cumulative_price);
+                env.storage()
+                    .instance()
+                    .set(&TwapKey::CumulativePrice, &cumulative_price);
+                env.storage()
+                    .instance()
+                    .set(&TwapKey::LastTimestamp, &current_timestamp);
+            }
+        } else {
             env.storage()
                 .instance()
                 .set(&TwapKey::LastTimestamp, &current_timestamp);
+            env.storage()
+                .instance()
+                .set(&TwapKey::CumulativePrice, &cumulative_price);
         }
 
         Ok(cumulative_price)
