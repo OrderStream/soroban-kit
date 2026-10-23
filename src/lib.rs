@@ -14,7 +14,7 @@
 //! - [`access`]: Bitflag-optimized RBAC and timelocked execution queue.
 //! - [`curve`]: Kinked interest rate models and linear interpolation.
 //! - [`twap`]: Flash-loan resistant Time-Weighted Average Price accumulator.
-//! - [`storage`]: Safe instance and temporary TTL extension helpers.
+//! - [`storage`]: Safe persistent, instance, and temporary TTL extension helpers.
 //! - [`events`]: Monotonically sequenced event emission for reliable indexing.
 
 pub mod access;

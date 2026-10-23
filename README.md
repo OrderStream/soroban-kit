@@ -13,14 +13,14 @@ Production-grade security utilities, sliding-window event deduplication, multi-t
 
 | Module | Core Primitive | Security Problem Solved |
 | :--- | :--- | :--- |
-| **`dedup`** | `DedupGuard` | Replay & duplicate execution suppression using temporary storage with zero permanent state pollution. |
+| **`dedup`** | `DedupGuard` | Replay & duplicate execution suppression with persistent authorization nonces and sliding-window action dedup. |
 | **`reentrancy`** | `ReentrancyGuard` | Zero-cost transient mutex protecting cross-contract calls and external token payouts. |
 | **`pause`** | `CircuitBreaker` | 3-tier emergency states (`Operational`, `Degraded`, `Halted`) with auto-trip threshold monitoring. |
 | **`access`** | `AccessControl` | Bitflag-packed multi-role access control (`Role::ADMIN`, `Role::MINTER`, etc.) and delayed timelock queues. |
 | **`math`** | `SafeMath` | Checked 128-bit arithmetic and **Banker's Rounding (Round Half to Even)** to prevent liquidity drift. |
 | **`curve`** | `CurveMath` | Piecewise kinked interest rate models for lending pools and linear decay curves for Dutch auctions. |
 | **`twap`** | `TwapOracle` | Flash-loan resistant Time-Weighted Average Price accumulator and observation calculations. |
-| **`storage`** | `StorageManager` | Automated instance and temporary storage TTL extension routines preventing archival lockouts. |
+| **`storage`** | `StorageManager` | Automated persistent, instance, and temporary storage TTL extension routines preventing archival lockouts. |
 | **`events`** | `EventEmitter` | Monotonically sequenced event topics ensuring zero out-of-order records in indexers. |
 
 ---

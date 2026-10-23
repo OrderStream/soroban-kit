@@ -45,7 +45,39 @@ fn test_nonce_verification() {
             env.storage().persistent().get::<DedupKey, u64>(&key),
             Some(2)
         );
+        assert_eq!(DedupGuard::get_nonce(&env, user_id), 2);
         assert!(!env.storage().temporary().has(&key));
+
+        // Querying an unused key returns 0
+        assert_eq!(DedupGuard::get_nonce(&env, 999), 0);
+
+        // Custom TTL horizons
+        assert!(DedupGuard::verify_and_increment_nonce_with_ttl(
+            &env,
+            user_id,
+            3,
+            100,
+            1000
+        ));
+        assert_eq!(DedupGuard::get_nonce(&env, user_id), 3);
+    });
+}
+
+#[test]
+fn test_storage_manager_bumps() {
+    use super::storage::StorageManager;
+    let env = Env::default();
+    let contract_id = env.register(TestContract, ());
+    env.as_contract(&contract_id, || {
+        let key = 100u64;
+        env.storage().persistent().set(&key, &true);
+        StorageManager::bump_persistent(&env, &key, 100, 1000);
+
+        let temp_key = 200u64;
+        env.storage().temporary().set(&temp_key, &true);
+        StorageManager::bump_temporary(&env, &temp_key, 100, 1000);
+
+        StorageManager::bump_instance(&env, 100, 1000);
     });
 }
 

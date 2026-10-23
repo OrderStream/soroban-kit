@@ -44,6 +44,13 @@ impl DedupGuard {
         true
     }
 
+    /// Returns the current sequential nonce for a user/action key.
+    /// Returns 0 if no nonce has been recorded yet.
+    pub fn get_nonce(env: &Env, user_nonce_key: u64) -> u64 {
+        let key = DedupKey::Nonce(user_nonce_key);
+        env.storage().persistent().get(&key).unwrap_or(0)
+    }
+
     /// Validates monotonically increasing sequential nonces for off-chain signed permits.
     /// Nonces are stored in persistent storage to eliminate potential replay on TTL eviction.
     /// Automatically extends the persistent entry's TTL if below NONCE_BUMP_THRESHOLD.
@@ -73,9 +80,12 @@ impl DedupGuard {
         }
 
         env.storage().persistent().set(&key, &expected_nonce);
-        env.storage()
-            .persistent()
-            .extend_ttl(&key, threshold_ledgers, extend_to_ledgers);
+        crate::storage::StorageManager::bump_persistent(
+            env,
+            &key,
+            threshold_ledgers,
+            extend_to_ledgers,
+        );
         true
     }
 }
