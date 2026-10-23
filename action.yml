@@ -24,12 +24,14 @@ runs:
     - name: Build soroban-kit-verify
       shell: bash
       run: |
-        cargo build --release --bin soroban_kit_verify --manifest-path ${{ github.action_path }}/Cargo.toml
+        cargo build --release --bin soroban_kit_verify --manifest-path "${{ github.action_path }}/Cargo.toml" --target-dir "${{ github.action_path }}/target"
     - name: Run Invariant Verification
       id: verify
       shell: bash
       env:
         ORDERSTREAM_LICENSE_KEY: ${{ inputs.license_key }}
       run: |
-        ${{ github.action_path }}/target/release/soroban_kit_verify --path "${{ inputs.path }}"
+        BIN="${{ github.action_path }}/target/release/soroban_kit_verify"
+        [ -f "${BIN}.exe" ] && BIN="${BIN}.exe"
+        "$BIN" --path "${{ inputs.path }}"
         echo "status=verified" >> $GITHUB_OUTPUT
