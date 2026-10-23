@@ -119,6 +119,21 @@ cargo build --target wasm32v1-none --release
 
 ---
 
+## 💼 Enterprise Support, Audits & Protocol Retainers
+
+`soroban-kit` is open-source and free to integrate into any Soroban smart contract. For institutional DeFi protocols and fintechs building on Stellar with substantial TVL, we offer dedicated security engineering and formal invariant modeling:
+
+| Offering | Target | Scope |
+|---|---|---|
+| **Contract Integration Review** | New protocols launching on Stellar | Rapid code review, custom RBAC timelock setup, circuit breaker parameterization ($2,500 one-time) |
+| **Protocol Retainer & Invariant Audit** | Live Mainnet Protocols | Monthly security reviews, upgrades verification, and continuous invariant fuzzing via `soroban-fuzz` ($3,500 / month) |
+| **Foundation Grant Milestone** | Ecosystem Grants (SCF) | Direct core tooling maintenance, gas optimization benchmarks, and community standards support |
+
+For enterprise inquiries and advisory services, contact [@OrderStream](https://github.com/OrderStream).
+
+---
+
 ## 📜 License
 
 Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE).
+
