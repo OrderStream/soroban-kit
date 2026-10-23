@@ -1,5 +1,5 @@
 [package]
-name = "soroban-kit"
+name = "soroban-security-kit"
 version = "0.1.0"
 edition = "2021"
 authors = ["OrderStream <healthdecoded77@gmail.com>"]
