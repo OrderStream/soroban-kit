@@ -1,0 +1,35 @@
+name: "Soroban Security Kit Verifier"
+description: "Verify Stellar Soroban smart contracts against reentrancy, TTL expiration, and arithmetic safety invariants"
+branding:
+  icon: "shield"
+  color: "purple"
+inputs:
+  path:
+    description: "Directory path containing contract sources"
+    required: false
+    default: "."
+  license_key:
+    description: "OrderStream Pro/Enterprise license key (optional)"
+    required: false
+    default: ""
+outputs:
+  status:
+    description: "Verification status"
+    value: ${{ steps.verify.outputs.status }}
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@stable
+    - name: Build soroban-kit-verify
+      shell: bash
+      run: |
+        cargo build --release --bin soroban_kit_verify --manifest-path ${{ github.action_path }}/Cargo.toml
+    - name: Run Invariant Verification
+      id: verify
+      shell: bash
+      env:
+        ORDERSTREAM_LICENSE_KEY: ${{ inputs.license_key }}
+      run: |
+        ${{ github.action_path }}/target/release/soroban_kit_verify --path "${{ inputs.path }}"
+        echo "status=verified" >> $GITHUB_OUTPUT

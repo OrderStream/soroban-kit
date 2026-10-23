@@ -3,10 +3,11 @@
 [![Crates.io](https://img.shields.io/crates/v/soroban-security-kit.svg)](https://crates.io/crates/soroban-security-kit)
 [![CI](https://github.com/OrderStream/soroban-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/OrderStream/soroban-kit/actions/workflows/ci.yml)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
-[![Soroban SDK](https://img.shields.io/badge/Soroban%20SDK-v22.0.0-purple.svg)](https://stellar.org/soroban)
-[![WASM Ready](https://img.shields.io/badge/WASM-wasm32v1--none-brightgreen.svg)](https://github.com/OrderStream/soroban-kit)
+[![OrderStream Polar](https://img.shields.io/badge/Polar-OrderStream-blue.svg)](https://polar.sh/OrderStream)
+[![Stellar XLM/USDC](https://img.shields.io/badge/Stellar-USDC%2FXLM-black.svg)](#direct-web3-settlement-wallets)
+[![Base USDC](https://img.shields.io/badge/Base-USDC-0052FF.svg)](#direct-web3-settlement-wallets)
 
-Production-grade security utilities, sliding-window event deduplication, multi-tier circuit breakers, bitflag RBAC timelocks, and high-precision financial math safeguards for Stellar Soroban smart contracts.
+**Production-grade security utilities, sliding-window event deduplication, multi-tier circuit breakers, bitflag RBAC timelocks, and high-precision financial math safeguards for Stellar Soroban smart contracts.**
 
 ---
 
@@ -68,7 +69,6 @@ use soroban_kit::pause::{CircuitBreaker, ProtocolState};
 use soroban_sdk::Env;
 
 pub fn deposit(env: Env, amount: i128) {
-    // Deposits are strictly blocked if protocol is Degraded or Halted
     CircuitBreaker::require_operational(&env).unwrap();
     // Execute deposit...
 }
@@ -80,67 +80,71 @@ pub fn emergency_withdraw(env: Env, user: Address) {
 }
 ```
 
-### 3. Bitflag Role-Based Access Control & Timelock
+---
 
-```rust
-use soroban_kit::access::{AccessControl, Role};
-use soroban_sdk::{Address, Env};
+## 💳 Enterprise Pricing & Protocol Retainers
 
-pub fn mint_reward(env: Env, caller: Address, recipient: Address, amount: i128) {
-    // Requires MINTER role in a single bitwise comparison
-    AccessControl::require_role(&env, &caller, Role::MINTER).unwrap();
-    // Mint token...
-}
+| Tier | Price | Scope | Features |
+| :--- | :--- | :--- | :--- |
+| **Open Source** | **$0** | Unlimited | Complete `soroban-security-kit` SDK crate |
+| **Starter CI Suite** | **$499 / mo** | 10 Repositories | Automated CI invariant verification and TTL check gates |
+| **Team Platform** | **$1,499 / mo** | 50 Repositories | All 10 OrderStream tools, 24/7 contract storage keeper, telemetry alarms |
+| **Enterprise Protocol Retainer** | **$4,999 / mo** | Unlimited Contracts | 24/7 dedicated security engineering, custom circuit breakers, zero-decay SLA |
+| **Official Soroban Audit Certificate** | **$2,500 / audit** | Single Contract | 1,000-step WASM storage TTL boundary fuzzing & cryptographic SHA-256 seal |
+| **M&A IP & Security Audit** | **$15,000 one-time**| Complete Protocol | Forensic code diligence, copyleft AST scan, and executive IP certificate |
+
+---
+
+## ⚡ Direct Web3 Settlement Wallets
+
+OrderStream accepts direct crypto payments with **0% intermediary platform cuts**:
+
+* **Stellar Protocol (USDC / XLM)**:  
+  `GABFQIK63R2NETJM7T673EAMZN4RJLLGP3OFUEJU5ZVTGWUKULZJNL6`  
+  *(Required Memo: `400566831`)*
+
+* **EVM Base Network (USDC / ETH)**:  
+  `0x5de2b62434754bfd39ef350a3a867ed3eced5074`
+
+* **Corporate Credit Card & Recurring Subscriptions**:  
+  Subscribe online via [Polar.sh/OrderStream](https://polar.sh/OrderStream).
+
+---
+
+## 🚀 CLI Runner
+
+Run the contract invariant verifier:
+
+```bash
+# Build verifier binary
+cargo build --release --bin soroban_kit_verify
+
+# Verify contract security invariants
+./target/release/soroban_kit_verify --path .
 ```
 
-### 4. Kinked Interest Rate Model for Lending Protocols
+---
 
-```rust
-use soroban_kit::curve::CurveMath;
+## 🛡️ GitHub Action Integration
 
-// 80% Kink (8,000 bps), 2% Base (200 bps), 10% Slope1 (1,000 bps), 50% Slope2 (5,000 bps)
-let rate = CurveMath::calculate_kinked_rate(
-    utilization_bps, // e.g. 8,500 bps (85%)
-    8_000,
-    200,
-    1_000,
-    5_000,
-).unwrap();
+```yaml
+- name: Verify Soroban Invariants
+  uses: OrderStream/soroban-kit@main
+  with:
+    path: "."
 ```
 
 ---
 
 ## 🧪 Verification & Testing
 
-All modules are verified with automated unit tests:
-
 ```bash
 cargo test
-```
-
-Compiled for WebAssembly release target:
-
-```bash
 cargo build --target wasm32v1-none --release
 ```
-
----
-
-## 💼 Enterprise Support, Audits & Protocol Retainers
-
-`soroban-kit` is open-source and free to integrate into any Soroban smart contract. For institutional DeFi protocols and fintechs building on Stellar with substantial TVL, we offer dedicated security engineering and formal invariant modeling:
-
-| Offering | Target | Scope |
-|---|---|---|
-| **Contract Integration Review** | New protocols launching on Stellar | Rapid code review, custom RBAC timelock setup, circuit breaker parameterization ($2,500 one-time) |
-| **Protocol Retainer & Invariant Audit** | Live Mainnet Protocols | Monthly security reviews, upgrades verification, and continuous invariant fuzzing via `soroban-fuzz` ($3,500 / month) |
-| **Foundation Grant Milestone** | Ecosystem Grants (SCF) | Direct core tooling maintenance, gas optimization benchmarks, and community standards support |
-
-For enterprise inquiries and advisory services, contact [@OrderStream](https://github.com/OrderStream).
 
 ---
 
 ## 📜 License
 
 Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE).
-
